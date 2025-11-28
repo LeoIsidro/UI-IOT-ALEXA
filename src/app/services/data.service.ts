@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, interval } from 'rxjs';
 import { SensorData, DeviceStatus } from '../models/sensor.model';
+import { SmartHomeRequest, SmartHomeResponse } from '../models/chat.model';
 
 interface SSEData {
   status?: string;
@@ -24,6 +25,69 @@ export class DataService {
 
   public sensors$: Observable<SensorData[]> = this.sensorsSubject.asObservable();
   public devices$: Observable<DeviceStatus[]> = this.devicesSubject.asObservable();
+
+  async sendChatMessage(message: string): Promise<SmartHomeResponse> {
+    const url = `${this.apiUrl}/api/v1/smart-home`;
+    const request: SmartHomeRequest = { request: message };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: SmartHomeResponse = await response.json();
+      console.log('Respuesta del chatbot:', data);
+      
+      // Actualizar dispositivos con la respuesta
+      this.updateDevicesFromChat(data);
+      
+      return data;
+    } catch (error) {
+      console.error('Error enviando mensaje al chatbot:', error);
+      throw error;
+    }
+  }
+
+  private updateDevicesFromChat(response: SmartHomeResponse): void {
+    const devices: DeviceStatus[] = [
+      {
+        id: 'blinds-1',
+        name: 'Persianas',
+        type: 'blinds',
+        status: response.persianas ? 'on' : 'off',
+        icon: '🪟',
+        level: response.persianas ? 100 : 0,
+        lastUpdate: new Date()
+      },
+      {
+        id: 'fan-1',
+        name: 'Ventilador',
+        type: 'fan',
+        status: response.ventilador ? 'on' : 'off',
+        icon: '🌀',
+        level: response.ventilador ? 70 : 0,
+        lastUpdate: new Date()
+      },
+      {
+        id: 'bulbs-1',
+        name: 'Luces',
+        type: 'fan',
+        status: response.bulbs ? 'on' : 'off',
+        icon: '💡',
+        level: response.bulbs ? 100 : 0,
+        lastUpdate: new Date()
+      }
+    ];
+    this.devicesSubject.next(devices);
+  }
 
   constructor() {
     // Cargar URL de API desde localStorage o usar valor por defecto

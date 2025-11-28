@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from './services/data.service';
 import { SensorData, DeviceStatus } from './models/sensor.model';
+import { ChatMessage } from './models/chat.model';
 
 @Component({
   selector: 'app-root',
@@ -18,8 +19,14 @@ export class AppComponent {
   apiUrl: string = '';
   showApiConfig: boolean = false;
   useRealData: boolean = false;
+  
+  // Chat
+  showChat: boolean = false;
+  chatMessages: ChatMessage[] = [];
+  userMessage: string = '';
+  isSendingMessage: boolean = false;
 
-  constructor(private dataService: DataService) {
+  constructor(private readonly dataService: DataService) {
     // Cargar URL del localStorage o usar valor por defecto
     this.apiUrl = localStorage.getItem('apiUrl') || 'http://172.20.10.2:8000';
     this.useRealData = localStorage.getItem('useRealData') === 'true';
@@ -140,7 +147,57 @@ export class AppComponent {
       path += ` L ${points[i].x},${points[i].y}`;
     }
     
-    path += ` L ${points[points.length - 1].x},100 Z`;
+    path += ` L ${points.at(-1)!.x},100 Z`;
     return path;
+  }
+
+  toggleChat(): void {
+    this.showChat = !this.showChat;
+  }
+
+  async sendMessage(): Promise<void> {
+    if (!this.userMessage.trim() || this.isSendingMessage) return;
+
+    const userMsg: ChatMessage = {
+      text: this.userMessage,
+      sender: 'user',
+      timestamp: new Date()
+    };
+
+    this.chatMessages.push(userMsg);
+    const messageText = this.userMessage;
+    this.userMessage = '';
+    this.isSendingMessage = true;
+
+    try {
+      const response = await this.dataService.sendChatMessage(messageText);
+      
+      const assistantMsg: ChatMessage = {
+        text: response.answer,
+        sender: 'assistant',
+        timestamp: new Date(),
+        response: response
+      };
+
+      this.chatMessages.push(assistantMsg);
+    } catch (error) {
+      console.error('Error al enviar mensaje al chatbot:', error);
+      const errorMsg: ChatMessage = {
+        text: 'Error al procesar el mensaje. Por favor, verifica la conexión con la API.',
+        sender: 'assistant',
+        timestamp: new Date()
+      };
+      this.chatMessages.push(errorMsg);
+    } finally {
+      this.isSendingMessage = false;
+    }
+
+    // Scroll al final del chat
+    setTimeout(() => {
+      const chatContainer = document.querySelector('.chat-messages');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
   }
 }

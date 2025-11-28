@@ -255,6 +255,95 @@
     </section>
   </main>
 
+  <!-- Chatbot Button -->
+  <button class="chat-toggle-btn" (click)="showChat = !showChat" [class.active]="showChat">
+    <span *ngIf="!showChat">💬</span>
+    <span *ngIf="showChat">✕</span>
+  </button>
+
+  <!-- Chatbot Panel -->
+  <div class="chat-panel" [class.open]="showChat">
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <span class="chat-icon">🤖</span>
+        <div>
+          <h3>Asistente Inteligente</h3>
+          <p class="chat-status">En línea</p>
+        </div>
+      </div>
+      <button class="chat-close-btn" (click)="showChat = false">✕</button>
+    </div>
+
+    <div class="chat-messages" #chatMessagesContainer>
+      <div *ngIf="chatMessages.length === 0" class="chat-welcome">
+        <div class="welcome-icon">👋</div>
+        <h4>¡Hola! Soy tu asistente de aula inteligente</h4>
+        <p>Puedo ayudarte a controlar los dispositivos del salón. Por ejemplo:</p>
+        <ul>
+          <li>"Enciende el ventilador"</li>
+          <li>"Abre las persianas"</li>
+          <li>"Apaga las luces"</li>
+          <li>"¿Cuál es la temperatura actual?"</li>
+        </ul>
+      </div>
+
+      <div *ngFor="let msg of chatMessages" class="chat-message" [class.user]="msg.sender === 'user'" [class.assistant]="msg.sender === 'assistant'">
+        <div class="message-content">
+          <div class="message-avatar">
+            <span *ngIf="msg.sender === 'user'">👤</span>
+            <span *ngIf="msg.sender === 'assistant'">🤖</span>
+          </div>
+          <div class="message-bubble">
+            <p>{{ msg.text }}</p>
+            <div *ngIf="msg.response" class="device-updates">
+              <div class="update-header">Estado de dispositivos:</div>
+              <div class="update-items">
+                <span class="update-item" [class.on]="msg.response.ventilador">
+                  <span class="device-emoji">🌬️</span> Ventilador: {{ msg.response.ventilador ? 'Encendido' : 'Apagado' }}
+                </span>
+                <span class="update-item" [class.on]="msg.response.persianas">
+                  <span class="device-emoji">🪟</span> Persianas: {{ msg.response.persianas ? 'Abiertas' : 'Cerradas' }}
+                </span>
+                <span class="update-item" [class.on]="msg.response.bulbs">
+                  <span class="device-emoji">💡</span> Luces: {{ msg.response.bulbs ? 'Encendidas' : 'Apagadas' }}
+                </span>
+              </div>
+            </div>
+            <span class="message-time">{{ msg.timestamp | date: 'HH:mm' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="isSendingMessage" class="chat-message assistant">
+        <div class="message-content">
+          <div class="message-avatar">🤖</div>
+          <div class="message-bubble typing">
+            <div class="typing-indicator">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input-container">
+      <input
+        type="text"
+        class="chat-input"
+        placeholder="Escribe tu mensaje..."
+        [(ngModel)]="userMessage"
+        (keyup.enter)="sendMessage()"
+        [disabled]="isSendingMessage"
+      />
+      <button class="chat-send-btn" (click)="sendMessage()" [disabled]="!userMessage.trim() || isSendingMessage">
+        <span *ngIf="!isSendingMessage">📤</span>
+        <span *ngIf="isSendingMessage" class="spinner"></span>
+      </button>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="footer">
     <p>Dashboard IoT - Sistema de Control Inteligente para Aulas | 2025</p>
