@@ -1,12 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { DataService } from './services/data.service';
 import { SensorData, DeviceStatus } from './models/sensor.model';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -14,8 +15,15 @@ export class AppComponent {
   sensors: SensorData[] = [];
   devices: DeviceStatus[] = [];
   currentTime: Date = new Date();
+  apiUrl: string = '';
+  showApiConfig: boolean = false;
+  useRealData: boolean = false;
 
   constructor(private dataService: DataService) {
+    // Cargar URL del localStorage o usar valor por defecto
+    this.apiUrl = localStorage.getItem('apiUrl') || 'http://172.20.10.2:8000';
+    this.useRealData = localStorage.getItem('useRealData') === 'true';
+    
     this.dataService.sensors$.subscribe(sensors => {
       this.sensors = sensors;
     });
@@ -30,13 +38,34 @@ export class AppComponent {
     }, 1000);
   }
 
-  toggleDevice(deviceId: string): void {
-    this.dataService.toggleDevice(deviceId);
+  toggleApiConfig(): void {
+    this.showApiConfig = !this.showApiConfig;
   }
 
-  onLevelChange(deviceId: string, event: Event): void {
-    const target = event.target as HTMLInputElement;
-    this.dataService.setDeviceLevel(deviceId, Number(target.value));
+  saveApiUrl(): void {
+    if (this.apiUrl.trim()) {
+      localStorage.setItem('apiUrl', this.apiUrl.trim());
+      this.dataService.setApiUrl(this.apiUrl.trim());
+      this.showApiConfig = false;
+      
+      // Mostrar confirmación
+      alert('✓ URL de API guardada correctamente: ' + this.apiUrl.trim());
+    }
+  }
+
+  resetApiUrl(): void {
+    this.apiUrl = 'http://172.20.10.2:8000';
+    localStorage.removeItem('apiUrl');
+    this.dataService.setApiUrl(this.apiUrl);
+    alert('✓ URL de API restablecida a valor por defecto');
+  }
+
+  toggleDataSource(): void {
+    this.useRealData = !this.useRealData;
+    this.dataService.toggleDataSource(this.useRealData);
+    
+    const mode = this.useRealData ? 'datos reales (SSE)' : 'datos simulados';
+    alert(`✓ Cambiado a modo: ${mode}`);
   }
 
   getStatusColor(status: string): string {
@@ -65,5 +94,53 @@ export class AppComponent {
 
   getPercentage(sensor: SensorData): number {
     return ((sensor.value - sensor.min) / (sensor.max - sensor.min)) * 100;
+  }
+
+  getChartHeight(value: number, min: number, max: number): number {
+    return ((value - min) / (max - min)) * 100;
+  }
+
+  getStatusForValue(sensorId: string, value: number): 'normal' | 'warning' | 'danger' {
+    if (sensorId === 'ldr-1') {
+      if (value < 200) return 'danger';
+      if (value < 400) return 'warning';
+      return 'normal';
+    } else if (sensorId === 'humidity-1') {
+      if (value > 70 || value < 30) return 'danger';
+      if (value > 60 || value < 40) return 'warning';
+      return 'normal';
+    } else if (sensorId === 'temp-1') {
+      if (value > 28 || value < 18) return 'danger';
+      if (value > 25 || value < 20) return 'warning';
+      return 'normal';
+    }
+    return 'normal';
+  }
+
+  getPolylinePoints(history: number[], min: number, max: number): string {
+    return history.map((value, index) => {
+      const x = (index * 50) + 25;
+      const y = 100 - this.getChartHeight(value, min, max);
+      return `${x},${y}`;
+    }).join(' ');
+  }
+
+  getAreaPath(history: number[], min: number, max: number): string {
+    if (history.length === 0) return '';
+    
+    const points = history.map((value, index) => {
+      const x = (index * 50) + 25;
+      const y = 100 - this.getChartHeight(value, min, max);
+      return { x, y };
+    });
+
+    let path = `M ${points[0].x},100 L ${points[0].x},${points[0].y}`;
+    
+    for (let i = 1; i < points.length; i++) {
+      path += ` L ${points[i].x},${points[i].y}`;
+    }
+    
+    path += ` L ${points[points.length - 1].x},100 Z`;
+    return path;
   }
 }

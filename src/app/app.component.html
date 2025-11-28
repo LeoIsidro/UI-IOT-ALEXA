@@ -18,6 +18,58 @@
           <span class="status-dot"></span>
           <span>Sistema Activo</span>
         </div>
+        <button class="api-config-button" (click)="toggleApiConfig()" title="Configurar API">
+          ⚙️
+        </button>
+      </div>
+    </div>
+    
+    <!-- Panel de Configuración de API -->
+    <div class="api-config-panel" [class.show]="showApiConfig">
+      <div class="api-config-content">
+        <h3>⚙️ Configuración de API</h3>
+        <p class="config-description">Configura la URL base de tu API para conectar con los sensores reales</p>
+        
+        <div class="input-group">
+          <label for="apiUrl">URL de la API:</label>
+          <input 
+            type="text" 
+            id="apiUrl"
+            [(ngModel)]="apiUrl" 
+            placeholder="http://172.20.10.2:8000"
+            class="api-input"
+          />
+        </div>
+        
+        <div class="data-source-toggle">
+          <label class="toggle-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="useRealData" 
+              (change)="toggleDataSource()"
+              class="toggle-checkbox"
+            />
+            <span class="toggle-switch"></span>
+            <span class="toggle-text">
+              {{ useRealData ? '🔴 Datos Reales (SSE)' : '🟢 Datos Simulados' }}
+            </span>
+          </label>
+          <p class="toggle-description">
+            {{ useRealData ? 'Conectado al servidor mediante Server-Sent Events' : 'Usando datos de prueba generados localmente' }}
+          </p>
+        </div>
+        
+        <div class="config-actions">
+          <button class="btn-save" (click)="saveApiUrl()">
+            💾 Guardar
+          </button>
+          <button class="btn-reset" (click)="resetApiUrl()">
+            🔄 Restablecer
+          </button>
+          <button class="btn-cancel" (click)="toggleApiConfig()">
+            ✖️ Cancelar
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -60,6 +112,79 @@
               <span>{{ sensor.max }}{{ sensor.unit }}</span>
             </div>
           </div>
+
+          <!-- Gráfico de Serie Temporal -->
+          <div class="chart-container" *ngIf="sensor.history && sensor.history.length > 0">
+            <div class="chart-title">📈 Serie Temporal - Últimas 10 mediciones</div>
+            <div class="time-series-chart">
+              <div class="y-axis">
+                <span class="y-label">{{ sensor.max }}</span>
+                <span class="y-label y-mid">{{ ((sensor.max + sensor.min) / 2).toFixed(0) }}</span>
+                <span class="y-label">{{ sensor.min }}</span>
+              </div>
+              <div class="chart-area">
+                <svg class="line-chart" [attr.viewBox]="'0 0 ' + (sensor.history.length * 50) + ' 100'" preserveAspectRatio="none">
+                  <!-- Líneas de cuadrícula -->
+                  <line x1="0" y1="0" [attr.x2]="sensor.history.length * 50" y2="0" class="grid-line" />
+                  <line x1="0" y1="50" [attr.x2]="sensor.history.length * 50" y2="50" class="grid-line" />
+                  <line x1="0" y1="100" [attr.x2]="sensor.history.length * 50" y2="100" class="grid-line" />
+                  
+                  <!-- Área bajo la línea -->
+                  <defs>
+                    <linearGradient [id]="'gradient-' + sensor.id" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" [attr.stop-color]="getStatusColor(sensor.status)" stop-opacity="0.3"/>
+                      <stop offset="100%" [attr.stop-color]="getStatusColor(sensor.status)" stop-opacity="0.05"/>
+                    </linearGradient>
+                  </defs>
+                  <path 
+                    [attr.d]="getAreaPath(sensor.history, sensor.min, sensor.max)"
+                    [attr.fill]="'url(#gradient-' + sensor.id + ')'"
+                  />
+                  
+                  <!-- Línea principal -->
+                  <polyline
+                    [attr.points]="getPolylinePoints(sensor.history, sensor.min, sensor.max)"
+                    [attr.stroke]="getStatusColor(sensor.status)"
+                    stroke-width="2"
+                    fill="none"
+                    class="chart-line"
+                  />
+                  
+                  <!-- Puntos de datos -->
+                  <circle
+                    *ngFor="let value of sensor.history; let i = index"
+                    [attr.cx]="(i * 50) + 25"
+                    [attr.cy]="100 - getChartHeight(value, sensor.min, sensor.max)"
+                    r="4"
+                    [attr.fill]="getStatusColor(getStatusForValue(sensor.id, value))"
+                    class="data-point"
+                    [attr.data-value]="value"
+                  >
+                    <title>{{ value }} {{ sensor.unit }}</title>
+                  </circle>
+                </svg>
+                <div class="x-axis">
+                  <span *ngFor="let value of sensor.history; let i = index" class="x-label">
+                    {{ i + 1 }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item">
+                <span class="legend-dot" style="background: #10b981;"></span>
+                Normal
+              </span>
+              <span class="legend-item">
+                <span class="legend-dot" style="background: #f59e0b;"></span>
+                Alerta
+              </span>
+              <span class="legend-item">
+                <span class="legend-dot" style="background: #ef4444;"></span>
+                Crítico
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -83,29 +208,6 @@
           <div class="device-status">
             <div class="status-badge-large" [style.background-color]="getStatusColor(device.status)">
               {{ getStatusText(device.status) }}
-            </div>
-          </div>
-
-          <div class="device-controls">
-            <button class="control-button" (click)="toggleDevice(device.id)">
-              <span class="button-icon">🔄</span>
-              Cambiar Estado
-            </button>
-
-            <div class="level-control" *ngIf="device.level !== undefined">
-              <label>
-                <span *ngIf="device.type === 'blinds'">Apertura:</span>
-                <span *ngIf="device.type === 'fan'">Velocidad:</span>
-                <strong>{{ device.level }}%</strong>
-              </label>
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                [value]="device.level"
-                (input)="onLevelChange(device.id, $event)"
-                class="slider"
-              />
             </div>
           </div>
 

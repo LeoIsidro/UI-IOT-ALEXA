@@ -8,6 +8,7 @@ export interface SensorData {
   icon: string;
   min: number;
   max: number;
+  history?: number[]; // Historial de las últimas 10 mediciones
 }
 
 export interface DeviceStatus {

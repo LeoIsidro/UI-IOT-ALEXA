@@ -6,6 +6,7 @@ Dashboard profesional en Angular para visualizar mediciones de sensores y contro
 
 - **Monitoreo en Tiempo Real**: Visualización de datos de sensores (LDR, Humedad, Temperatura)
 - **Control de Dispositivos**: Gestión de persianas y ventilador
+- **Configuración Dinámica de API**: Panel integrado para configurar la URL base de tu API
 - **Interfaz Moderna**: Diseño profesional con animaciones y efectos visuales
 - **Responsive**: Adaptable a cualquier dispositivo
 - **Sistema de Alertas**: Indicadores de estado según rangos de valores
@@ -94,11 +95,48 @@ src/
 
 ## 🔄 Actualización de Datos
 
-Los datos de los sensores se simulan localmente y se actualizan cada 3 segundos. Para conectar con sensores reales:
+### Configuración de API
 
-1. Modifica el servicio `data.service.ts`
-2. Implementa llamadas HTTP a tu API/Backend
-3. Actualiza las interfaces en `sensor.model.ts` según sea necesario
+El dashboard incluye un **panel de configuración de API** accesible desde el botón ⚙️ en la esquina superior derecha del header. Este panel te permite:
+
+1. **Configurar la URL base de tu API**: Ingresa la URL de tu backend (ej: `http://172.20.10.2:8000`)
+2. **Modo de datos**:
+   - 🟢 **Datos Simulados**: Genera datos de prueba localmente (por defecto)
+   - 🔴 **Datos Reales (SSE)**: Conecta al servidor mediante Server-Sent Events
+3. **Visualizar endpoints generados**: El sistema automáticamente construye las URLs para:
+   - `{apiUrl}/api/v1/sensors/stream` - Stream SSE de sensores en tiempo real
+   - `{apiUrl}/api/v1/devices` - Estado de dispositivos
+   - `{apiUrl}/api/v1/devices/:id/control` - Control de dispositivos
+4. **Persistencia**: La configuración se guarda en el localStorage del navegador
+
+### Integración con Server-Sent Events (SSE)
+
+El dashboard está diseñado para consumir datos en tiempo real mediante SSE. La API debe enviar eventos con el siguiente formato JSON:
+
+```json
+{
+  "temperatura": 22.5,
+  "humedad": 55,
+  "luz": 650,
+  "ventilador": true,
+  "persianas": false,
+  "bulbs": true
+}
+```
+
+**Mapeo de Sensores:**
+- `temperatura` → Sensor de Temperatura (°C)
+- `humedad` → Sensor de Humedad Relativa (%)
+- `luz` → Sensor LDR de Luz Ambiente (lux)
+
+**Mapeo de Dispositivos:**
+- `ventilador` → Estado del Ventilador (true/false)
+- `persianas` → Estado de Persianas (true=Abiertas/false=Cerradas)
+- `bulbs` → Estado de Luces (true/false)
+
+### Reconexión Automática
+
+El servicio incluye reconexión automática en caso de pérdida de conexión SSE (cada 5 segundos).
 
 ## 📝 Licencia
 
